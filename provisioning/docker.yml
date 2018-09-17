@@ -1,0 +1,39 @@
+---
+- name: Build Docker images from Dockerfiles.
+  docker_image:
+    name: "{{ item.name }}"
+    tag: "{{ item.tag }}"
+    path: "/vagrant/provisioning/{{ item.directory }}"
+    state: build
+  with_items:
+    - { name: guestbook-app, tag: app, directory: guestbook-app }
+    - { name: redis, tag: db, directory: redis }
+    - { name: nginx, tag: www, directory: nginx }
+
+- name: Run a Redis container.
+  docker_container:
+    image: redis:db
+    name: redis
+    state: started
+    ports: "6379:6379"
+
+- name: Run a guestbook-app container.
+  docker_container:
+    image: guestbook-app:app
+    name: guestbook-app
+    state: started
+    env:
+      REDIS_MASTER_SERVICE_HOST: redis
+      REDIS_SLAVE_SERVICE_HOST: redis
+      GET_HOSTS_FROM: env
+    links:
+      - redis:redis
+
+- name: Run a nginx container.
+  docker_container:
+    image: nginx:www
+    name: nginx
+    state: started
+    ports: "80:80"
+    links:
+      - guestbook-app:guestbook-app
